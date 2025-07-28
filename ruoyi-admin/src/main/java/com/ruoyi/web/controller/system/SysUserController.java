@@ -31,6 +31,14 @@ import com.ruoyi.system.service.ISysDeptService;
 import com.ruoyi.system.service.ISysPostService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
+import com.ruoyi.system.service.IDistributionService;
+import com.ruoyi.system.service.IUserAccountFlowService;
+import com.ruoyi.system.service.IAgentSettingService;
+import com.ruoyi.system.domain.UserAccountFlow;
+import com.ruoyi.system.domain.AgentSetting;
+import com.ruoyi.system.domain.Product;
+import com.ruoyi.system.mapper.ProductMapper;
+import java.math.BigDecimal;
 
 /**
  * 用户信息
@@ -49,6 +57,18 @@ public class SysUserController extends BaseController
 
     @Autowired
     private ISysDeptService deptService;
+
+    @Autowired
+    private IDistributionService distributionService;
+
+    @Autowired
+    private IUserAccountFlowService userAccountFlowService;
+
+    @Autowired
+    private IAgentSettingService agentSettingService;
+
+    @Autowired
+    private ProductMapper productMapper;
 
     @Autowired
     private ISysPostService postService;
@@ -252,5 +272,254 @@ public class SysUserController extends BaseController
     public AjaxResult deptTree(SysDept dept)
     {
         return success(deptService.selectDeptTreeList(dept));
+    }
+
+    /**
+     * 查看用户账户信息
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:query')")
+    @GetMapping("/account/{userId}")
+    public AjaxResult getUserAccount(@PathVariable Long userId)
+    {
+        userService.checkUserDataScope(userId);
+        SysUser user = userService.selectUserById(userId);
+        if (user == null) {
+            return error("用户不存在");
+        }
+
+        AjaxResult result = AjaxResult.success();
+        result.put("balance", user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO);
+        result.put("memberLevel", user.getMemberLevel() != null ? user.getMemberLevel() : 0);
+        result.put("teamLevel", user.getTeamLevel() != null ? user.getTeamLevel() : 0);
+        result.put("totalPerformance", user.getTotalPerformance() != null ? user.getTotalPerformance() : BigDecimal.ZERO);
+        result.put("directGoldMembers", user.getDirectGoldMembers() != null ? user.getDirectGoldMembers() : 0);
+        result.put("referrerId", user.getReferrerId());
+        result.put("referrerName", user.getReferrerName());
+
+        return result;
+    }
+
+    /**
+     * 查看用户账户流水
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:query')")
+    @GetMapping("/account/flow/{userId}")
+    public TableDataInfo getUserAccountFlow(@PathVariable Long userId)
+    {
+        userService.checkUserDataScope(userId);
+        startPage();
+        UserAccountFlow flow = new UserAccountFlow();
+        flow.setUserId(userId);
+        List<UserAccountFlow> list = userAccountFlowService.selectUserAccountFlowList(flow);
+        return getDataTable(list);
+    }
+
+    /**
+     * 更新用户余额
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "用户余额管理", businessType = BusinessType.UPDATE)
+    @PostMapping("/balance")
+    public AjaxResult updateUserBalance(@RequestBody UpdateBalanceRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        boolean result = distributionService.updateUserBalance(
+            request.getUserId(),
+            request.getAmount(),
+            "管理员操作",
+            null,
+            request.getRemark()
+        );
+        return result ? success() : error("操作失败");
+    }
+
+    /**
+     * 绑定推荐人
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "绑定推荐人", businessType = BusinessType.UPDATE)
+    @PostMapping("/referrer")
+    public AjaxResult bindReferrer(@RequestBody BindReferrerRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        boolean result = distributionService.bindReferrer(request.getUserId(), request.getReferrerPhone());
+        return result ? success() : error("绑定失败，请检查推荐人手机号是否正确");
+    }
+
+    /**
+     * 设置会员等级
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "设置会员等级", businessType = BusinessType.UPDATE)
+    @PostMapping("/member")
+    public AjaxResult setMemberLevel(@RequestBody SetMemberLevelRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        boolean result = distributionService.setMemberLevel(request.getUserId(), request.getMemberLevel());
+        return result ? success() : error("设置失败");
+    }
+
+    /**
+     * 升级团队级别
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "升级团队级别", businessType = BusinessType.UPDATE)
+    @PostMapping("/level")
+    public AjaxResult upgradeLevel(@RequestBody UpgradeLevelRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        boolean canUpgrade = distributionService.checkLevelUpgrade(request.getUserId(), request.getTargetLevel());
+        if (!canUpgrade) {
+            return error("不满足升级条件");
+        }
+
+        boolean result = distributionService.upgradeUserLevel(request.getUserId(), request.getTargetLevel());
+        return result ? success() : error("升级失败");
+    }
+
+    /**
+     * 设置代理
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "设置代理", businessType = BusinessType.UPDATE)
+    @PostMapping("/agent")
+    public AjaxResult setAgent(@RequestBody SetAgentRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        boolean result = agentSettingService.setUserAgent(
+            request.getUserId(),
+            request.getAgentType(),
+            request.getProvince(),
+            request.getCity()
+        );
+        return result ? success() : error("设置失败");
+    }
+
+    /**
+     * 取消代理
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "取消代理", businessType = BusinessType.UPDATE)
+    @DeleteMapping("/agent/{userId}")
+    public AjaxResult cancelAgent(@PathVariable Long userId)
+    {
+        userService.checkUserDataScope(userId);
+        boolean result = agentSettingService.cancelUserAgent(userId);
+        return result ? success() : error("取消失败");
+    }
+
+    /**
+     * 模拟下单
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "模拟下单", businessType = BusinessType.INSERT)
+    @PostMapping("/order")
+    public AjaxResult placeOrder(@RequestBody PlaceOrderRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        try {
+            distributionService.processOrder(
+                request.getUserId(),
+                request.getProductId(),
+                request.getProvince(),
+                request.getCity(),
+                request.getAddress()
+            );
+            return success();
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取商品列表
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:query')")
+    @GetMapping("/products")
+    public AjaxResult getProducts()
+    {
+        Product product = new Product();
+        product.setStatus("0");
+        List<Product> products = productMapper.selectProductList(product);
+        return success(products);
+    }
+
+    // 请求对象类
+    public static class UpdateBalanceRequest {
+        private Long userId;
+        private BigDecimal amount;
+        private String remark;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public BigDecimal getAmount() { return amount; }
+        public void setAmount(BigDecimal amount) { this.amount = amount; }
+        public String getRemark() { return remark; }
+        public void setRemark(String remark) { this.remark = remark; }
+    }
+
+    public static class BindReferrerRequest {
+        private Long userId;
+        private String referrerPhone;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public String getReferrerPhone() { return referrerPhone; }
+        public void setReferrerPhone(String referrerPhone) { this.referrerPhone = referrerPhone; }
+    }
+
+    public static class SetMemberLevelRequest {
+        private Long userId;
+        private Integer memberLevel;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Integer getMemberLevel() { return memberLevel; }
+        public void setMemberLevel(Integer memberLevel) { this.memberLevel = memberLevel; }
+    }
+
+    public static class UpgradeLevelRequest {
+        private Long userId;
+        private Integer targetLevel;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Integer getTargetLevel() { return targetLevel; }
+        public void setTargetLevel(Integer targetLevel) { this.targetLevel = targetLevel; }
+    }
+
+    public static class SetAgentRequest {
+        private Long userId;
+        private Integer agentType;
+        private String province;
+        private String city;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Integer getAgentType() { return agentType; }
+        public void setAgentType(Integer agentType) { this.agentType = agentType; }
+        public String getProvince() { return province; }
+        public void setProvince(String province) { this.province = province; }
+        public String getCity() { return city; }
+        public void setCity(String city) { this.city = city; }
+    }
+
+    public static class PlaceOrderRequest {
+        private Long userId;
+        private Long productId;
+        private String province;
+        private String city;
+        private String address;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Long getProductId() { return productId; }
+        public void setProductId(Long productId) { this.productId = productId; }
+        public String getProvince() { return province; }
+        public void setProvince(String province) { this.province = province; }
+        public String getCity() { return city; }
+        public void setCity(String city) { this.city = city; }
+        public String getAddress() { return address; }
+        public void setAddress(String address) { this.address = address; }
     }
 }

@@ -24,6 +24,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateBy"      column="update_by"       />
         <result property="updateTime"    column="update_time"     />
         <result property="remark"        column="remark"          />
+        <result property="referrerId"    column="referrer_id"     />
+        <result property="memberLevel"   column="member_level"    />
+        <result property="teamLevel"     column="team_level"      />
+        <result property="balance"       column="balance"         />
+        <result property="totalPerformance" column="total_performance" />
+        <result property="directGoldMembers" column="direct_gold_members" />
+        <result property="referrerName"  column="referrer_name"   />
         <association property="dept"     javaType="SysDept"         resultMap="deptResult" />
         <collection  property="roles"    javaType="java.util.List"  resultMap="RoleResult" />
     </resultMap>
@@ -48,18 +55,25 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 	
 	<sql id="selectUserVo">
-        select u.user_id, u.dept_id, u.user_name, u.nick_name, u.email, u.avatar, u.phonenumber, u.password, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.pwd_update_date, u.create_by, u.create_time, u.remark, 
+        select u.user_id, u.dept_id, u.user_name, u.nick_name, u.email, u.avatar, u.phonenumber, u.password, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.pwd_update_date, u.create_by, u.create_time, u.remark,
+        u.referrer_id, u.member_level, u.team_level, u.balance, u.total_performance, u.direct_gold_members,
         d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num, d.leader, d.status as dept_status,
-        r.role_id, r.role_name, r.role_key, r.role_sort, r.data_scope, r.status as role_status
+        r.role_id, r.role_name, r.role_key, r.role_sort, r.data_scope, r.status as role_status,
+        ref.nick_name as referrer_name
         from sys_user u
 		    left join sys_dept d on u.dept_id = d.dept_id
 		    left join sys_user_role ur on u.user_id = ur.user_id
 		    left join sys_role r on r.role_id = ur.role_id
+		    left join sys_user ref on u.referrer_id = ref.user_id
     </sql>
     
     <select id="selectUserList" parameterType="SysUser" resultMap="SysUserResult">
-		select u.user_id, u.dept_id, u.nick_name, u.user_name, u.email, u.avatar, u.phonenumber, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.create_by, u.create_time, u.remark, d.dept_name, d.leader from sys_user u
+		select u.user_id, u.dept_id, u.nick_name, u.user_name, u.email, u.avatar, u.phonenumber, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.create_by, u.create_time, u.remark,
+		u.referrer_id, u.member_level, u.team_level, u.balance, u.total_performance, u.direct_gold_members,
+		d.dept_name, d.leader, ref.nick_name as referrer_name
+		from sys_user u
 		left join sys_dept d on u.dept_id = d.dept_id
+		left join sys_user ref on u.referrer_id = ref.user_id
 		where u.del_flag = '0'
 		<if test="userId != null and userId != 0">
 			AND u.user_id = #{userId}
@@ -81,6 +95,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		</if>
 		<if test="deptId != null and deptId != 0">
 			AND (u.dept_id = #{deptId} OR u.dept_id IN ( SELECT t.dept_id FROM sys_dept t WHERE find_in_set(#{deptId}, ancestors) ))
+		</if>
+		<if test="referrerId != null and referrerId != 0">
+			AND u.referrer_id = #{referrerId}
+		</if>
+		<if test="memberLevel != null">
+			AND u.member_level = #{memberLevel}
+		</if>
+		<if test="teamLevel != null">
+			AND u.team_level = #{teamLevel}
 		</if>
 		<!-- 数据范围过滤 -->
 		${params.dataScope}

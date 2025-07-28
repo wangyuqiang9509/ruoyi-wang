@@ -92,6 +92,34 @@ public class SysUser extends BaseEntity
     /** 角色ID */
     private Long roleId;
 
+    /** 推荐人ID */
+    @Excel(name = "推荐人ID", type = Type.EXPORT)
+    private Long referrerId;
+
+    /** 会员等级（0普通用户 1普通会员 2金牌会员） */
+    @Excel(name = "会员等级", readConverterExp = "0=普通用户,1=普通会员,2=金牌会员")
+    private Integer memberLevel;
+
+    /** 团队级别（0无 1经理 2总监 3合伙人） */
+    @Excel(name = "团队级别", readConverterExp = "0=无,1=经理,2=总监,3=合伙人")
+    private Integer teamLevel;
+
+    /** 账户余额 */
+    @Excel(name = "账户余额")
+    private java.math.BigDecimal balance;
+
+    /** 团队总业绩 */
+    @Excel(name = "团队总业绩")
+    private java.math.BigDecimal totalPerformance;
+
+    /** 直推金牌会员数量 */
+    @Excel(name = "直推金牌会员数量")
+    private Integer directGoldMembers;
+
+    /** 推荐人姓名 */
+    @Excel(name = "推荐人姓名", type = Type.EXPORT)
+    private String referrerName;
+
     public SysUser()
     {
 
@@ -308,6 +336,76 @@ public class SysUser extends BaseEntity
     public void setRoleId(Long roleId)
     {
         this.roleId = roleId;
+    }
+
+    public Long getReferrerId()
+    {
+        return referrerId;
+    }
+
+    public void setReferrerId(Long referrerId)
+    {
+        this.referrerId = referrerId;
+    }
+
+    public Integer getMemberLevel()
+    {
+        return memberLevel;
+    }
+
+    public void setMemberLevel(Integer memberLevel)
+    {
+        this.memberLevel = memberLevel;
+    }
+
+    public Integer getTeamLevel()
+    {
+        return teamLevel;
+    }
+
+    public void setTeamLevel(Integer teamLevel)
+    {
+        this.teamLevel = teamLevel;
+    }
+
+    public java.math.BigDecimal getBalance()
+    {
+        return balance;
+    }
+
+    public void setBalance(java.math.BigDecimal balance)
+    {
+        this.balance = balance;
+    }
+
+    public java.math.BigDecimal getTotalPerformance()
+    {
+        return totalPerformance;
+    }
+
+    public void setTotalPerformance(java.math.BigDecimal totalPerformance)
+    {
+        this.totalPerformance = totalPerformance;
+    }
+
+    public Integer getDirectGoldMembers()
+    {
+        return directGoldMembers;
+    }
+
+    public void setDirectGoldMembers(Integer directGoldMembers)
+    {
+        this.directGoldMembers = directGoldMembers;
+    }
+
+    public String getReferrerName()
+    {
+        return referrerName;
+    }
+
+    public void setReferrerName(String referrerName)
+    {
+        this.referrerName = referrerName;
     }
 
     @Override

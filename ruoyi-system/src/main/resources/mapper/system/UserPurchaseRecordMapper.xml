@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.UserPurchaseRecordMapper">
+    
+    <resultMap type="UserPurchaseRecord" id="UserPurchaseRecordResult">
+        <result property="recordId"    column="record_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="productId"    column="product_id"    />
+        <result property="purchaseCount"    column="purchase_count"    />
+        <result property="firstPurchaseTime"    column="first_purchase_time"    />
+        <result property="lastPurchaseTime"    column="last_purchase_time"    />
+    </resultMap>
+
+    <sql id="selectUserPurchaseRecordVo">
+        select record_id, user_id, product_id, purchase_count, first_purchase_time, last_purchase_time from user_purchase_record
+    </sql>
+
+    <select id="selectUserPurchaseRecordList" parameterType="UserPurchaseRecord" resultMap="UserPurchaseRecordResult">
+        <include refid="selectUserPurchaseRecordVo"/>
+        <where>  
+            <if test="userId != null "> and user_id = #{userId}</if>
+            <if test="productId != null "> and product_id = #{productId}</if>
+        </where>
+        order by last_purchase_time desc
+    </select>
+    
+    <select id="selectUserPurchaseRecordByRecordId" parameterType="Long" resultMap="UserPurchaseRecordResult">
+        <include refid="selectUserPurchaseRecordVo"/>
+        where record_id = #{recordId}
+    </select>
+
+    <select id="selectUserPurchaseRecordByUserAndProduct" resultMap="UserPurchaseRecordResult">
+        <include refid="selectUserPurchaseRecordVo"/>
+        where user_id = #{param1} and product_id = #{param2}
+    </select>
+        
+    <insert id="insertUserPurchaseRecord" parameterType="UserPurchaseRecord" useGeneratedKeys="true" keyProperty="recordId">
+        insert into user_purchase_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="purchaseCount != null">purchase_count,</if>
+            <if test="firstPurchaseTime != null">first_purchase_time,</if>
+            <if test="lastPurchaseTime != null">last_purchase_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="purchaseCount != null">#{purchaseCount},</if>
+            <if test="firstPurchaseTime != null">#{firstPurchaseTime},</if>
+            <if test="lastPurchaseTime != null">#{lastPurchaseTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateUserPurchaseRecord" parameterType="UserPurchaseRecord">
+        update user_purchase_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="purchaseCount != null">purchase_count = #{purchaseCount},</if>
+            <if test="firstPurchaseTime != null">first_purchase_time = #{firstPurchaseTime},</if>
+            <if test="lastPurchaseTime != null">last_purchase_time = #{lastPurchaseTime},</if>
+        </trim>
+        where record_id = #{recordId}
+    </update>
+
+    <delete id="deleteUserPurchaseRecordByRecordId" parameterType="Long">
+        delete from user_purchase_record where record_id = #{recordId}
+    </delete>
+
+    <delete id="deleteUserPurchaseRecordByRecordIds" parameterType="String">
+        delete from user_purchase_record where record_id in 
+        <foreach item="recordId" collection="array" open="(" separator="," close=")">
+            #{recordId}
+        </foreach>
+    </delete>
+
+</mapper>

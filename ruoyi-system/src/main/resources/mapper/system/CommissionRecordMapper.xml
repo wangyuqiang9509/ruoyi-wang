@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.CommissionRecordMapper">
+    
+    <resultMap type="CommissionRecord" id="CommissionRecordResult">
+        <result property="recordId"    column="record_id"    />
+        <result property="orderId"    column="order_id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="commissionType"    column="commission_type"    />
+        <result property="commissionRate"    column="commission_rate"    />
+        <result property="commissionAmount"    column="commission_amount"    />
+        <result property="orderAmount"    column="order_amount"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="orderNo"    column="order_no"    />
+        <result property="userName"    column="user_name"    />
+        <result property="nickName"    column="nick_name"    />
+    </resultMap>
+
+    <sql id="selectCommissionRecordVo">
+        select c.record_id, c.order_id, c.user_id, c.commission_type, c.commission_rate, c.commission_amount, c.order_amount, c.create_time,
+               o.order_no, u.user_name, u.nick_name
+        from commission_record c
+        left join orders o on c.order_id = o.order_id
+        left join sys_user u on c.user_id = u.user_id
+    </sql>
+
+    <select id="selectCommissionRecordList" parameterType="CommissionRecord" resultMap="CommissionRecordResult">
+        <include refid="selectCommissionRecordVo"/>
+        <where>  
+            <if test="orderId != null "> and c.order_id = #{orderId}</if>
+            <if test="userId != null "> and c.user_id = #{userId}</if>
+            <if test="commissionType != null  and commissionType != ''"> and c.commission_type like concat('%', #{commissionType}, '%')</if>
+        </where>
+        order by c.create_time desc
+    </select>
+    
+    <select id="selectCommissionRecordByRecordId" parameterType="Long" resultMap="CommissionRecordResult">
+        <include refid="selectCommissionRecordVo"/>
+        where c.record_id = #{recordId}
+    </select>
+        
+    <insert id="insertCommissionRecord" parameterType="CommissionRecord" useGeneratedKeys="true" keyProperty="recordId">
+        insert into commission_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="orderId != null">order_id,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="commissionType != null">commission_type,</if>
+            <if test="commissionRate != null">commission_rate,</if>
+            <if test="commissionAmount != null">commission_amount,</if>
+            <if test="orderAmount != null">order_amount,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="orderId != null">#{orderId},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="commissionType != null">#{commissionType},</if>
+            <if test="commissionRate != null">#{commissionRate},</if>
+            <if test="commissionAmount != null">#{commissionAmount},</if>
+            <if test="orderAmount != null">#{orderAmount},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateCommissionRecord" parameterType="CommissionRecord">
+        update commission_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="orderId != null">order_id = #{orderId},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="commissionType != null">commission_type = #{commissionType},</if>
+            <if test="commissionRate != null">commission_rate = #{commissionRate},</if>
+            <if test="commissionAmount != null">commission_amount = #{commissionAmount},</if>
+            <if test="orderAmount != null">order_amount = #{orderAmount},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+        </trim>
+        where record_id = #{recordId}
+    </update>
+
+    <delete id="deleteCommissionRecordByRecordId" parameterType="Long">
+        delete from commission_record where record_id = #{recordId}
+    </delete>
+
+    <delete id="deleteCommissionRecordByRecordIds" parameterType="String">
+        delete from commission_record where record_id in 
+        <foreach item="recordId" collection="array" open="(" separator="," close=")">
+            #{recordId}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -6,8 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.system.mapper.AgentSettingMapper;
+import com.ruoyi.system.mapper.SysUserMapper;
 import com.ruoyi.system.domain.AgentSetting;
 import com.ruoyi.system.service.IAgentSettingService;
+import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
  * 代理设置Service业务层处理
@@ -20,6 +22,9 @@ public class AgentSettingServiceImpl implements IAgentSettingService
 {
     @Autowired
     private AgentSettingMapper agentSettingMapper;
+
+    @Autowired
+    private SysUserMapper userMapper;
 
     /**
      * 查询代理设置
@@ -96,7 +101,7 @@ public class AgentSettingServiceImpl implements IAgentSettingService
 
     /**
      * 设置用户为代理
-     * 
+     *
      * @param userId 用户ID
      * @param agentType 代理类型（1省级 2市级）
      * @param province 省份
@@ -110,7 +115,7 @@ public class AgentSettingServiceImpl implements IAgentSettingService
         try {
             // 先删除用户现有的代理设置
             agentSettingMapper.deleteAgentSettingByUserId(userId);
-            
+
             // 创建新的代理设置
             AgentSetting agentSetting = new AgentSetting();
             agentSetting.setUserId(userId);
@@ -119,8 +124,21 @@ public class AgentSettingServiceImpl implements IAgentSettingService
             agentSetting.setCity(city);
             agentSetting.setStatus("0");
             agentSetting.setCreateTime(new Date());
-            
-            return agentSettingMapper.insertAgentSetting(agentSetting) > 0;
+
+            // 插入代理设置
+            boolean insertResult = agentSettingMapper.insertAgentSetting(agentSetting) > 0;
+
+            if (insertResult) {
+                // 同步更新用户表的代理级别和代理区域字段
+                SysUser user = new SysUser();
+                user.setUserId(userId);
+                user.setAgentLevel(agentType);
+                user.setAgentProvince(province);
+                user.setAgentCity(city);
+                userMapper.updateUser(user);
+            }
+
+            return insertResult;
         } catch (Exception e) {
             return false;
         }
@@ -128,7 +146,7 @@ public class AgentSettingServiceImpl implements IAgentSettingService
 
     /**
      * 取消用户代理设置
-     * 
+     *
      * @param userId 用户ID
      * @return 结果
      */
@@ -137,7 +155,19 @@ public class AgentSettingServiceImpl implements IAgentSettingService
     public boolean cancelUserAgent(Long userId)
     {
         try {
-            return agentSettingMapper.deleteAgentSettingByUserId(userId) >= 0;
+            boolean deleteResult = agentSettingMapper.deleteAgentSettingByUserId(userId) >= 0;
+
+            if (deleteResult) {
+                // 同步更新用户表的代理级别和代理区域字段为空（无代理）
+                SysUser user = new SysUser();
+                user.setUserId(userId);
+                user.setAgentLevel(0);
+                user.setAgentProvince(null);
+                user.setAgentCity(null);
+                userMapper.updateUser(user);
+            }
+
+            return deleteResult;
         } catch (Exception e) {
             return false;
         }
@@ -145,7 +175,7 @@ public class AgentSettingServiceImpl implements IAgentSettingService
 
     /**
      * 根据省份和城市获取代理列表
-     * 
+     *
      * @param province 省份
      * @param city 城市
      * @return 代理列表
@@ -154,5 +184,17 @@ public class AgentSettingServiceImpl implements IAgentSettingService
     public List<AgentSetting> getAgentsByLocation(String province, String city)
     {
         return agentSettingMapper.selectAgentsByProvinceAndCity(province, city);
+    }
+
+    /**
+     * 根据用户ID获取代理设置
+     *
+     * @param userId 用户ID
+     * @return 代理设置
+     */
+    @Override
+    public AgentSetting getAgentSettingByUserId(Long userId)
+    {
+        return agentSettingMapper.selectAgentSettingByUserId(userId);
     }
 }

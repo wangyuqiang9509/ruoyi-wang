@@ -96,4 +96,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from agent_setting where user_id = #{userId}
     </delete>
 
+    <select id="selectAgentSettingByUserId" parameterType="Long" resultMap="AgentSettingResult">
+        <include refid="selectAgentSettingVo"/>
+        where a.user_id = #{userId} and a.status = '0'
+        limit 1
+    </select>
+
 </mapper>

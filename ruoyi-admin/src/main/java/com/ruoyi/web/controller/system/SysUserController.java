@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.system;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.ArrayUtils;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
@@ -295,6 +297,9 @@ public class SysUserController extends BaseController
         result.put("directGoldMembers", user.getDirectGoldMembers() != null ? user.getDirectGoldMembers() : 0);
         result.put("referrerId", user.getReferrerId());
         result.put("referrerName", user.getReferrerName());
+        result.put("agentLevel", user.getAgentLevel() != null ? user.getAgentLevel() : 0);
+        result.put("agentProvince", user.getAgentProvince());
+        result.put("agentCity", user.getAgentCity());
 
         return result;
     }
@@ -323,9 +328,16 @@ public class SysUserController extends BaseController
     public AjaxResult updateUserBalance(@RequestBody UpdateBalanceRequest request)
     {
         userService.checkUserDataScope(request.getUserId());
+
+        // 根据操作类型确定金额的正负
+        BigDecimal amount = request.getAmount();
+        if ("subtract".equals(request.getType())) {
+            amount = amount.negate(); // 扣除操作，金额变为负数
+        }
+
         boolean result = distributionService.updateUserBalance(
             request.getUserId(),
-            request.getAmount(),
+            amount,
             "管理员操作",
             null,
             request.getRemark()
@@ -368,9 +380,11 @@ public class SysUserController extends BaseController
     public AjaxResult upgradeLevel(@RequestBody UpgradeLevelRequest request)
     {
         userService.checkUserDataScope(request.getUserId());
-        boolean canUpgrade = distributionService.checkLevelUpgrade(request.getUserId(), request.getTargetLevel());
-        if (!canUpgrade) {
-            return error("不满足升级条件");
+
+        // 获取详细的升级条件检查结果
+        String checkResult = getUpgradeCheckMessage(request.getUserId(), request.getTargetLevel());
+        if (checkResult != null) {
+            return error(checkResult);
         }
 
         boolean result = distributionService.upgradeUserLevel(request.getUserId(), request.getTargetLevel());
@@ -378,22 +392,110 @@ public class SysUserController extends BaseController
     }
 
     /**
-     * 设置代理
+     * 设置用户代理
      */
     @PreAuthorize("@ss.hasPermi('system:user:edit')")
-    @Log(title = "设置代理", businessType = BusinessType.UPDATE)
+    @Log(title = "设置用户代理", businessType = BusinessType.UPDATE)
     @PostMapping("/agent")
-    public AjaxResult setAgent(@RequestBody SetAgentRequest request)
+    public AjaxResult setUserAgent(@RequestBody SetAgentRequest request)
     {
         userService.checkUserDataScope(request.getUserId());
+
+        // 参数验证
+        if (request.getUserId() == null) {
+            return error("用户ID不能为空");
+        }
+        if (request.getAgentType() == null || (request.getAgentType() != 1 && request.getAgentType() != 2)) {
+            return error("代理类型错误");
+        }
+        if (StringUtils.isEmpty(request.getProvince())) {
+            return error("省份不能为空");
+        }
+        if (request.getAgentType() == 2 && StringUtils.isEmpty(request.getCity())) {
+            return error("市级代理必须选择城市");
+        }
+
         boolean result = agentSettingService.setUserAgent(
             request.getUserId(),
             request.getAgentType(),
             request.getProvince(),
             request.getCity()
         );
-        return result ? success() : error("设置失败");
+
+        return result ? success() : error("设置代理失败");
     }
+
+    /**
+     * 检查升级条件并返回详细信息
+     */
+    private String getUpgradeCheckMessage(Long userId, Integer targetLevel) {
+        SysUser user = userService.selectUserById(userId);
+        if (user == null) return "用户不存在";
+
+        switch (targetLevel) {
+            case 1: // 经理
+                int managerGoldRequired = distributionService.getConfigIntValue("level.manager.gold_members");
+                java.math.BigDecimal managerPerformanceRequired = distributionService.getConfigDecimalValue("level.manager.performance");
+
+                int currentGoldMembers = user.getDirectGoldMembers() != null ? user.getDirectGoldMembers() : 0;
+                java.math.BigDecimal currentPerformance = user.getTotalPerformance() != null ? user.getTotalPerformance() : java.math.BigDecimal.ZERO;
+
+                if (currentGoldMembers < managerGoldRequired) {
+                    return String.format("直推金牌会员数量不足，需要%d个，当前%d个", managerGoldRequired, currentGoldMembers);
+                }
+                if (currentPerformance.compareTo(managerPerformanceRequired) < 0) {
+                    return String.format("团队业绩不足，需要%.2f，当前%.2f", managerPerformanceRequired, currentPerformance);
+                }
+                break;
+
+            case 2: // 总监
+                int directorGoldRequired = distributionService.getConfigIntValue("level.director.gold_members");
+                java.math.BigDecimal directorPerformanceRequired = distributionService.getConfigDecimalValue("level.director.performance");
+                int directorManagersRequired = distributionService.getConfigIntValue("level.director.managers");
+
+                currentGoldMembers = user.getDirectGoldMembers() != null ? user.getDirectGoldMembers() : 0;
+                currentPerformance = user.getTotalPerformance() != null ? user.getTotalPerformance() : java.math.BigDecimal.ZERO;
+                int currentManagers = distributionService.countDifferentBranchManagers(userId);
+
+                if (currentGoldMembers < directorGoldRequired) {
+                    return String.format("直推金牌会员数量不足，需要%d个，当前%d个", directorGoldRequired, currentGoldMembers);
+                }
+                if (currentPerformance.compareTo(directorPerformanceRequired) < 0) {
+                    return String.format("团队业绩不足，需要%.2f，当前%.2f", directorPerformanceRequired, currentPerformance);
+                }
+                if (currentManagers < directorManagersRequired) {
+                    return String.format("培养经理数量不足，需要%d个，当前%d个", directorManagersRequired, currentManagers);
+                }
+                break;
+
+            case 3: // 合伙人
+                int partnerGoldRequired = distributionService.getConfigIntValue("level.partner.gold_members");
+                java.math.BigDecimal partnerPerformanceRequired = distributionService.getConfigDecimalValue("level.partner.performance");
+                int partnerDirectorsRequired = distributionService.getConfigIntValue("level.partner.directors");
+
+                currentGoldMembers = user.getDirectGoldMembers() != null ? user.getDirectGoldMembers() : 0;
+                currentPerformance = user.getTotalPerformance() != null ? user.getTotalPerformance() : java.math.BigDecimal.ZERO;
+                int currentDirectors = distributionService.countDifferentBranchDirectors(userId);
+
+                if (currentGoldMembers < partnerGoldRequired) {
+                    return String.format("直推金牌会员数量不足，需要%d个，当前%d个", partnerGoldRequired, currentGoldMembers);
+                }
+                if (currentPerformance.compareTo(partnerPerformanceRequired) < 0) {
+                    return String.format("团队业绩不足，需要%.2f，当前%.2f", partnerPerformanceRequired, currentPerformance);
+                }
+                if (currentDirectors < partnerDirectorsRequired) {
+                    return String.format("培养总监数量不足，需要%d个，当前%d个", partnerDirectorsRequired, currentDirectors);
+                }
+                break;
+
+            default:
+                return "无效的目标级别";
+        }
+
+        return null; // 满足所有条件
+    }
+
+
 
     /**
      * 取消代理
@@ -444,14 +546,38 @@ public class SysUserController extends BaseController
         return success(products);
     }
 
+    /**
+     * 获取订单价格预览
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:query')")
+    @PostMapping("/order/preview")
+    public AjaxResult getOrderPreview(@RequestBody OrderPreviewRequest request)
+    {
+        userService.checkUserDataScope(request.getUserId());
+        try {
+            Map<String, Object> preview = distributionService.getOrderPreview(
+                request.getUserId(),
+                request.getProductId()
+            );
+            return success(preview);
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+
+
     // 请求对象类
     public static class UpdateBalanceRequest {
         private Long userId;
+        private String type; // 操作类型：add增加，subtract扣除
         private BigDecimal amount;
         private String remark;
 
         public Long getUserId() { return userId; }
         public void setUserId(Long userId) { this.userId = userId; }
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
         public BigDecimal getAmount() { return amount; }
         public void setAmount(BigDecimal amount) { this.amount = amount; }
         public String getRemark() { return remark; }
@@ -521,5 +647,15 @@ public class SysUserController extends BaseController
         public void setCity(String city) { this.city = city; }
         public String getAddress() { return address; }
         public void setAddress(String address) { this.address = address; }
+    }
+
+    public static class OrderPreviewRequest {
+        private Long userId;
+        private Long productId;
+
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Long getProductId() { return productId; }
+        public void setProductId(Long productId) { this.productId = productId; }
     }
 }

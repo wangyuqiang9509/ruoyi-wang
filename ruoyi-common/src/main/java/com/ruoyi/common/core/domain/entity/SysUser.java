@@ -120,6 +120,16 @@ public class SysUser extends BaseEntity
     @Excel(name = "推荐人姓名", type = Type.EXPORT)
     private String referrerName;
 
+    /** 代理级别（0无代理 1省级代理 2市级代理） */
+    @Excel(name = "代理级别", readConverterExp = "0=无代理,1=省级代理,2=市级代理")
+    private Integer agentLevel;
+
+    /** 代理省份 */
+    private String agentProvince;
+
+    /** 代理城市 */
+    private String agentCity;
+
     public SysUser()
     {
 
@@ -406,6 +416,36 @@ public class SysUser extends BaseEntity
     public void setReferrerName(String referrerName)
     {
         this.referrerName = referrerName;
+    }
+
+    public Integer getAgentLevel()
+    {
+        return agentLevel;
+    }
+
+    public void setAgentLevel(Integer agentLevel)
+    {
+        this.agentLevel = agentLevel;
+    }
+
+    public String getAgentProvince()
+    {
+        return agentProvince;
+    }
+
+    public void setAgentProvince(String agentProvince)
+    {
+        this.agentProvince = agentProvince;
+    }
+
+    public String getAgentCity()
+    {
+        return agentCity;
+    }
+
+    public void setAgentCity(String agentCity)
+    {
+        this.agentCity = agentCity;
     }
 
     @Override

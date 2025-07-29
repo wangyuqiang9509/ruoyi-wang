@@ -70,9 +70,17 @@ public interface AgentSettingMapper
 
     /**
      * 删除用户的代理设置
-     * 
+     *
      * @param userId 用户ID
      * @return 结果
      */
     public int deleteAgentSettingByUserId(Long userId);
+
+    /**
+     * 根据用户ID查询代理设置
+     *
+     * @param userId 用户ID
+     * @return 代理设置
+     */
+    public AgentSetting selectAgentSettingByUserId(Long userId);
 }

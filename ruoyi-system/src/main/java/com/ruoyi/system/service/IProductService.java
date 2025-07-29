@@ -1,15 +1,15 @@
-package com.ruoyi.system.mapper;
+package com.ruoyi.system.service;
 
 import java.util.List;
 import com.ruoyi.system.domain.Product;
 
 /**
- * 商品Mapper接口
+ * 商品Service接口
  * 
  * @author ruoyi
- * @date 2025-01-28
+ * @date 2025-01-29
  */
-public interface ProductMapper 
+public interface IProductService 
 {
     /**
      * 查询商品
@@ -44,7 +44,15 @@ public interface ProductMapper
     public int updateProduct(Product product);
 
     /**
-     * 删除商品
+     * 批量删除商品
+     * 
+     * @param productIds 需要删除的商品主键集合
+     * @return 结果
+     */
+    public int deleteProductByProductIds(Long[] productIds);
+
+    /**
+     * 删除商品信息
      * 
      * @param productId 商品主键
      * @return 结果
@@ -52,18 +60,10 @@ public interface ProductMapper
     public int deleteProductByProductId(Long productId);
 
     /**
-     * 批量删除商品
-     *
-     * @param productIds 需要删除的数据主键集合
+     * 校验商品名称是否唯一
+     * 
+     * @param product 商品信息
      * @return 结果
      */
-    public int deleteProductByProductIds(Long[] productIds);
-
-    /**
-     * 校验商品名称是否唯一
-     *
-     * @param productName 商品名称
-     * @return 商品信息
-     */
-    public Product checkProductNameUnique(String productName);
+    public boolean checkProductNameUnique(Product product);
 }

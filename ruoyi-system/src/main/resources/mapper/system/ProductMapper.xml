@@ -75,10 +75,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </delete>
 
     <delete id="deleteProductByProductIds" parameterType="String">
-        delete from product where product_id in 
+        delete from product where product_id in
         <foreach item="productId" collection="array" open="(" separator="," close=")">
             #{productId}
         </foreach>
     </delete>
+
+    <select id="checkProductNameUnique" parameterType="String" resultMap="ProductResult">
+        <include refid="selectProductVo"/>
+        where product_name = #{productName} limit 1
+    </select>
 
 </mapper>

@@ -80,10 +80,18 @@ public interface IAgentSettingService
 
     /**
      * 根据省份和城市获取代理列表
-     * 
+     *
      * @param province 省份
      * @param city 城市
      * @return 代理列表
      */
     public List<AgentSetting> getAgentsByLocation(String province, String city);
+
+    /**
+     * 根据用户ID获取代理设置
+     *
+     * @param userId 用户ID
+     * @return 代理设置
+     */
+    public AgentSetting getAgentSettingByUserId(Long userId);
 }

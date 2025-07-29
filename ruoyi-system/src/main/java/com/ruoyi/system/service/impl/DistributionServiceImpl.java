@@ -3,7 +3,9 @@ package com.ruoyi.system.service.impl;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +64,58 @@ public class DistributionServiceImpl implements IDistributionService
     
     @Autowired
     private AgentSettingMapper agentSettingMapper;
+
+    /**
+     * 获取订单价格预览
+     */
+    @Override
+    public Map<String, Object> getOrderPreview(Long userId, Long productId)
+    {
+        Map<String, Object> preview = new HashMap<>();
+
+        // 1. 获取用户信息
+        SysUser user = userMapper.selectUserById(userId);
+        if (user == null) {
+            throw new ServiceException("用户不存在");
+        }
+
+        // 2. 获取商品信息
+        Product product = productMapper.selectProductByProductId(productId);
+        if (product == null) {
+            throw new ServiceException("商品不存在");
+        }
+
+        // 3. 检查用户购买记录，判断是否复购
+        UserPurchaseRecord purchaseRecord = purchaseRecordMapper.selectUserPurchaseRecordByUserAndProduct(userId, productId);
+        boolean isRepurchase = purchaseRecord != null;
+
+        // 4. 计算价格
+        BigDecimal originalPrice = product.getPrice();
+        BigDecimal actualPrice = originalPrice;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        BigDecimal discountRate = new BigDecimal("100");
+
+        // 如果是复购且用户是会员，享受8折优惠
+        if (isRepurchase && user.getMemberLevel() != null && user.getMemberLevel() > 0) {
+            discountRate = getConfigDecimalValue("member.repurchase_discount");
+            actualPrice = originalPrice.multiply(discountRate.divide(new BigDecimal("100"))).setScale(2, RoundingMode.HALF_UP);
+            discountAmount = originalPrice.subtract(actualPrice);
+        }
+
+        // 5. 构建预览信息
+        preview.put("productId", productId);
+        preview.put("productName", product.getProductName());
+        preview.put("originalPrice", originalPrice);
+        preview.put("actualPrice", actualPrice);
+        preview.put("discountAmount", discountAmount);
+        preview.put("discountRate", discountRate);
+        preview.put("isRepurchase", isRepurchase);
+        preview.put("memberLevel", user.getMemberLevel());
+        preview.put("userBalance", user.getBalance());
+        preview.put("balanceSufficient", user.getBalance() != null && user.getBalance().compareTo(actualPrice) >= 0);
+
+        return preview;
+    }
 
     /**
      * 用户下单处理
@@ -331,21 +385,37 @@ public class DistributionServiceImpl implements IDistributionService
      * 更新用户余额
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public boolean updateUserBalance(Long userId, BigDecimal amount, String businessType, Long businessId, String remark)
     {
         try {
+            // 查询用户信息
             SysUser user = userMapper.selectUserById(userId);
             if (user == null) {
-                return false;
+                throw new RuntimeException("用户不存在，userId: " + userId);
             }
 
             BigDecimal balanceBefore = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
             BigDecimal balanceAfter = balanceBefore.add(amount);
 
+            // 检查余额是否足够（如果是扣除操作）
+            if (amount.compareTo(BigDecimal.ZERO) < 0 && balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("用户余额不足，当前余额: " + balanceBefore + ", 扣除金额: " + amount.abs());
+            }
+
             // 更新用户余额
             user.setBalance(balanceAfter);
-            userMapper.updateUser(user);
+            int updateResult = userMapper.updateUser(user);
+            if (updateResult <= 0) {
+                throw new RuntimeException("更新用户余额失败，影响行数: " + updateResult);
+            }
+
+            // 验证更新是否成功
+            SysUser updatedUser = userMapper.selectUserById(userId);
+            if (updatedUser == null || !balanceAfter.equals(updatedUser.getBalance())) {
+                throw new RuntimeException("余额更新验证失败，期望: " + balanceAfter + ", 实际: " +
+                    (updatedUser != null ? updatedUser.getBalance() : "null"));
+            }
 
             // 记录流水
             UserAccountFlow flow = new UserAccountFlow();
@@ -358,11 +428,19 @@ public class DistributionServiceImpl implements IDistributionService
             flow.setBusinessId(businessId);
             flow.setRemark(remark);
             flow.setCreateTime(new Date());
-            accountFlowMapper.insertUserAccountFlow(flow);
+
+            int flowResult = accountFlowMapper.insertUserAccountFlow(flow);
+            if (flowResult <= 0) {
+                throw new RuntimeException("插入流水记录失败，影响行数: " + flowResult);
+            }
 
             return true;
         } catch (Exception e) {
-            return false;
+            // 记录详细错误信息
+            System.err.println("更新用户余额失败 - userId: " + userId + ", amount: " + amount +
+                ", businessType: " + businessType + ", error: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("更新用户余额失败: " + e.getMessage(), e);
         }
     }
 
@@ -454,6 +532,12 @@ public class DistributionServiceImpl implements IDistributionService
         if (user == null) return false;
 
         Integer oldLevel = user.getMemberLevel();
+
+        // 验证不能降级：新等级不能低于当前等级
+        if (oldLevel != null && memberLevel < oldLevel) {
+            throw new RuntimeException("不能将会员等级从" + getLevelName(oldLevel) + "降级为" + getLevelName(memberLevel));
+        }
+
         user.setMemberLevel(memberLevel);
 
         // 如果升级为金牌会员，需要更新推荐人的直推金牌会员数量
@@ -556,6 +640,19 @@ public class DistributionServiceImpl implements IDistributionService
             return StringUtils.isNotEmpty(value) ? new BigDecimal(value) : BigDecimal.ZERO;
         } catch (NumberFormatException e) {
             return BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * 获取会员等级名称
+     */
+    private String getLevelName(Integer level) {
+        if (level == null) return "未知";
+        switch (level) {
+            case 0: return "普通用户";
+            case 1: return "普通会员";
+            case 2: return "金牌会员";
+            default: return "未知";
         }
     }
 }

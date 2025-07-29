@@ -2,6 +2,7 @@ package com.ruoyi.system.service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.system.domain.Orders;
 
@@ -14,8 +15,17 @@ import com.ruoyi.system.domain.Orders;
 public interface IDistributionService
 {
     /**
+     * 获取订单价格预览
+     *
+     * @param userId 用户ID
+     * @param productId 商品ID
+     * @return 订单价格预览信息
+     */
+    public Map<String, Object> getOrderPreview(Long userId, Long productId);
+
+    /**
      * 用户下单处理
-     * 
+     *
      * @param userId 用户ID
      * @param productId 商品ID
      * @param province 收货省份

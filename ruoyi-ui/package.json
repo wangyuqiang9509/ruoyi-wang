@@ -49,6 +49,7 @@
     "vuex": "3.6.0"
   },
   "devDependencies": {
+    "@babel/types": "^7.28.2",
     "@vue/cli-plugin-babel": "4.4.6",
     "@vue/cli-service": "4.4.6",
     "babel-plugin-dynamic-import-node": "2.3.3",

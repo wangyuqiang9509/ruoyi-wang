@@ -134,3 +134,82 @@ export function deptTreeSelect() {
     method: 'get'
   })
 }
+
+// 更新用户余额
+export function updateUserBalance(data) {
+  return request({
+    url: '/system/user/balance',
+    method: 'post',
+    data: data
+  })
+}
+
+// 获取用户账户流水
+export function getUserAccountFlow(userId) {
+  return request({
+    url: '/system/user/account/flow/' + userId,
+    method: 'get'
+  })
+}
+
+// 绑定推荐人
+export function bindReferrer(data) {
+  return request({
+    url: '/system/user/referrer',
+    method: 'post',
+    data: data
+  })
+}
+
+// 设置会员等级
+export function updateMemberLevel(data) {
+  return request({
+    url: '/system/user/member',
+    method: 'post',
+    data: data
+  })
+}
+
+// 升级团队级别
+export function upgradeTeamLevel(data) {
+  return request({
+    url: '/system/user/level',
+    method: 'post',
+    data: data
+  })
+}
+
+// 设置用户代理
+export function setUserAgent(data) {
+  return request({
+    url: '/system/user/agent',
+    method: 'post',
+    data: data
+  })
+}
+
+// 获取商品列表
+export function getProductList() {
+  return request({
+    url: '/system/user/products',
+    method: 'get'
+  })
+}
+
+// 获取订单价格预览
+export function getOrderPreview(data) {
+  return request({
+    url: '/system/user/order/preview',
+    method: 'post',
+    data: data
+  })
+}
+
+// 模拟下单
+export function placeOrder(data) {
+  return request({
+    url: '/system/user/order',
+    method: 'post',
+    data: data
+  })
+}

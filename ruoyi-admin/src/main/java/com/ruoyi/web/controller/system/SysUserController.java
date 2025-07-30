@@ -1,5 +1,6 @@
 package com.ruoyi.web.controller.system;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -389,6 +390,47 @@ public class SysUserController extends BaseController
 
         boolean result = distributionService.upgradeUserLevel(request.getUserId(), request.getTargetLevel());
         return result ? success() : error("升级失败");
+    }
+
+    /**
+     * 测试升级算法 - 用于验证优化后的不同分支统计逻辑
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:list')")
+    @GetMapping("/testUpgradeAlgorithm/{userId}")
+    public AjaxResult testUpgradeAlgorithm(@PathVariable Long userId)
+    {
+        try {
+            SysUser user = userService.selectUserById(userId);
+            if (user == null) {
+                return error("用户不存在");
+            }
+
+            // 统计不同分支的经理和总监数量
+            int managerCount = distributionService.countDifferentBranchManagers(userId);
+            int directorCount = distributionService.countDifferentBranchDirectors(userId);
+
+            // 检查升级条件
+            boolean canUpgradeToManager = distributionService.checkLevelUpgrade(userId, 1);
+            boolean canUpgradeToDirector = distributionService.checkLevelUpgrade(userId, 2);
+            boolean canUpgradeToPartner = distributionService.checkLevelUpgrade(userId, 3);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("userId", userId);
+            result.put("userName", user.getUserName());
+            result.put("nickName", user.getNickName());
+            result.put("currentTeamLevel", user.getTeamLevel());
+            result.put("differentBranchManagers", managerCount);
+            result.put("differentBranchDirectors", directorCount);
+            result.put("canUpgradeToManager", canUpgradeToManager);
+            result.put("canUpgradeToDirector", canUpgradeToDirector);
+            result.put("canUpgradeToPartner", canUpgradeToPartner);
+            result.put("directGoldMembers", user.getDirectGoldMembers());
+            result.put("totalPerformance", user.getTotalPerformance());
+
+            return success(result);
+        } catch (Exception e) {
+            return error("测试失败：" + e.getMessage());
+        }
     }
 
     /**

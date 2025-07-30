@@ -2,10 +2,13 @@ package com.ruoyi.system.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -581,28 +584,134 @@ public class DistributionServiceImpl implements IDistributionService
 
     /**
      * 统计用户培养的经理数量（不同分支）
+     * 优化算法：统计来自不同推荐线的经理数量，而不是直推的经理数量
      */
     @Override
     public int countDifferentBranchManagers(Long userId)
     {
-        SysUser searchUser = new SysUser();
-        searchUser.setReferrerId(userId);
-        searchUser.setTeamLevel(1); // 经理级别
-        List<SysUser> managers = userMapper.selectUserList(searchUser);
-        return managers.size();
+        return countDifferentBranchUsers(userId, 1);
     }
 
     /**
      * 统计用户培养的总监数量（不同分支）
+     * 优化算法：统计来自不同推荐线的总监数量，而不是直推的总监数量
      */
     @Override
     public int countDifferentBranchDirectors(Long userId)
     {
+        return countDifferentBranchUsers(userId, 2);
+    }
+
+    /**
+     * 统计用户团队中来自不同分支的指定级别用户数量
+     * 核心算法：通过递归查找团队中所有指定级别的用户，然后按照其直推人分组统计
+     *
+     * @param userId 用户ID
+     * @param targetLevel 目标级别（1经理 2总监 3合伙人）
+     * @return 来自不同分支的用户数量
+     */
+    private int countDifferentBranchUsers(Long userId, Integer targetLevel)
+    {
+        // 1. 获取用户团队中所有指定级别的用户
+        List<SysUser> targetLevelUsers = findTeamUsersByLevel(userId, targetLevel);
+
+        if (targetLevelUsers.isEmpty()) {
+            return 0;
+        }
+
+        // 2. 按照直推人分组，统计不同分支的数量
+        Set<Long> differentBranches = new HashSet<>();
+
+        for (SysUser user : targetLevelUsers) {
+            // 找到该用户的直推人（第一层推荐人）
+            Long directReferrerId = findDirectReferrerInTeam(user.getUserId(), userId);
+            if (directReferrerId != null) {
+                differentBranches.add(directReferrerId);
+            }
+        }
+
+        return differentBranches.size();
+    }
+
+    /**
+     * 递归查找用户团队中所有指定级别的用户
+     *
+     * @param userId 团队领导用户ID
+     * @param targetLevel 目标级别
+     * @return 指定级别的用户列表
+     */
+    private List<SysUser> findTeamUsersByLevel(Long userId, Integer targetLevel)
+    {
+        List<SysUser> result = new ArrayList<>();
+        Set<Long> visited = new HashSet<>(); // 防止循环引用
+
+        findTeamUsersRecursive(userId, targetLevel, result, visited);
+
+        return result;
+    }
+
+    /**
+     * 递归查找团队用户
+     *
+     * @param currentUserId 当前用户ID
+     * @param targetLevel 目标级别
+     * @param result 结果列表
+     * @param visited 已访问的用户ID集合
+     */
+    private void findTeamUsersRecursive(Long currentUserId, Integer targetLevel, List<SysUser> result, Set<Long> visited)
+    {
+        if (visited.contains(currentUserId)) {
+            return; // 防止循环引用
+        }
+        visited.add(currentUserId);
+
+        // 查找当前用户的直推用户
         SysUser searchUser = new SysUser();
-        searchUser.setReferrerId(userId);
-        searchUser.setTeamLevel(2); // 总监级别
-        List<SysUser> directors = userMapper.selectUserList(searchUser);
-        return directors.size();
+        searchUser.setReferrerId(currentUserId);
+        List<SysUser> directUsers = userMapper.selectUserList(searchUser);
+
+        for (SysUser user : directUsers) {
+            // 如果是目标级别的用户，加入结果
+            if (user.getTeamLevel() != null && user.getTeamLevel().equals(targetLevel)) {
+                result.add(user);
+            }
+
+            // 继续递归查找该用户的下级
+            findTeamUsersRecursive(user.getUserId(), targetLevel, result, visited);
+        }
+    }
+
+    /**
+     * 查找用户在指定团队中的直推人
+     * 向上追溯推荐关系，找到在团队领导直推范围内的推荐人
+     *
+     * @param userId 用户ID
+     * @param teamLeaderId 团队领导ID
+     * @return 直推人ID，如果不在团队范围内则返回null
+     */
+    private Long findDirectReferrerInTeam(Long userId, Long teamLeaderId)
+    {
+        Long currentUserId = userId;
+        Set<Long> visited = new HashSet<>(); // 防止循环引用
+
+        // 向上追溯推荐关系
+        while (currentUserId != null && !visited.contains(currentUserId)) {
+            visited.add(currentUserId);
+
+            SysUser currentUser = userMapper.selectUserById(currentUserId);
+            if (currentUser == null || currentUser.getReferrerId() == null) {
+                break;
+            }
+
+            // 如果当前用户的推荐人是团队领导，那么当前用户就是直推人
+            if (currentUser.getReferrerId().equals(teamLeaderId)) {
+                return currentUserId;
+            }
+
+            currentUserId = currentUser.getReferrerId();
+        }
+
+        return null; // 不在团队范围内
     }
 
     /**

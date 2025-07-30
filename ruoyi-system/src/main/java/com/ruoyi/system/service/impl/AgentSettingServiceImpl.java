@@ -6,10 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.system.mapper.AgentSettingMapper;
-import com.ruoyi.system.mapper.SysUserMapper;
 import com.ruoyi.system.domain.AgentSetting;
 import com.ruoyi.system.service.IAgentSettingService;
-import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
  * 代理设置Service业务层处理
@@ -22,9 +20,6 @@ public class AgentSettingServiceImpl implements IAgentSettingService
 {
     @Autowired
     private AgentSettingMapper agentSettingMapper;
-
-    @Autowired
-    private SysUserMapper userMapper;
 
     /**
      * 查询代理设置
@@ -126,19 +121,7 @@ public class AgentSettingServiceImpl implements IAgentSettingService
             agentSetting.setCreateTime(new Date());
 
             // 插入代理设置
-            boolean insertResult = agentSettingMapper.insertAgentSetting(agentSetting) > 0;
-
-            if (insertResult) {
-                // 同步更新用户表的代理级别和代理区域字段
-                SysUser user = new SysUser();
-                user.setUserId(userId);
-                user.setAgentLevel(agentType);
-                user.setAgentProvince(province);
-                user.setAgentCity(city);
-                userMapper.updateUser(user);
-            }
-
-            return insertResult;
+            return agentSettingMapper.insertAgentSetting(agentSetting) > 0;
         } catch (Exception e) {
             return false;
         }
@@ -155,19 +138,8 @@ public class AgentSettingServiceImpl implements IAgentSettingService
     public boolean cancelUserAgent(Long userId)
     {
         try {
-            boolean deleteResult = agentSettingMapper.deleteAgentSettingByUserId(userId) >= 0;
-
-            if (deleteResult) {
-                // 同步更新用户表的代理级别和代理区域字段为空（无代理）
-                SysUser user = new SysUser();
-                user.setUserId(userId);
-                user.setAgentLevel(0);
-                user.setAgentProvince(null);
-                user.setAgentCity(null);
-                userMapper.updateUser(user);
-            }
-
-            return deleteResult;
+            // 删除用户的代理设置记录
+            return agentSettingMapper.deleteAgentSettingByUserId(userId) >= 0;
         } catch (Exception e) {
             return false;
         }

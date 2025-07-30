@@ -59,11 +59,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	
 	<sql id="selectUserVo">
         select u.user_id, u.dept_id, u.user_name, u.nick_name, u.email, u.avatar, u.phonenumber, u.password, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.pwd_update_date, u.create_by, u.create_time, u.remark,
-        u.referrer_id, u.member_level, u.team_level, u.balance, u.total_performance, u.direct_gold_members, u.agent_level,
+        u.referrer_id, u.member_level, u.team_level, u.balance, u.total_performance, u.direct_gold_members,
         d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num, d.leader, d.status as dept_status,
         r.role_id, r.role_name, r.role_key, r.role_sort, r.data_scope, r.status as role_status,
         ref.nick_name as referrer_name,
-        a.province as agent_province, a.city as agent_city
+        COALESCE(a.agent_type, 0) as agent_level, a.province as agent_province, a.city as agent_city
         from sys_user u
 		    left join sys_dept d on u.dept_id = d.dept_id
 		    left join sys_user_role ur on u.user_id = ur.user_id
@@ -74,9 +74,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     
     <select id="selectUserList" parameterType="SysUser" resultMap="SysUserResult">
 		select u.user_id, u.dept_id, u.nick_name, u.user_name, u.email, u.avatar, u.phonenumber, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.create_by, u.create_time, u.remark,
-		u.referrer_id, u.member_level, u.team_level, u.balance, u.total_performance, u.direct_gold_members, u.agent_level,
+		u.referrer_id, u.member_level, u.team_level, u.balance, u.total_performance, u.direct_gold_members,
 		d.dept_name, d.leader, ref.nick_name as referrer_name,
-		a.province as agent_province, a.city as agent_city
+		COALESCE(a.agent_type, 0) as agent_level, a.province as agent_province, a.city as agent_city
 		from sys_user u
 		left join sys_dept d on u.dept_id = d.dept_id
 		left join sys_user ref on u.referrer_id = ref.user_id

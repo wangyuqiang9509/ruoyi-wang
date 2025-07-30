@@ -188,6 +188,14 @@ export function setUserAgent(data) {
   })
 }
 
+// 取消用户代理
+export function cancelUserAgent(userId) {
+  return request({
+    url: '/system/user/agent/' + userId,
+    method: 'delete'
+  })
+}
+
 // 获取商品列表
 export function getProductList() {
   return request({

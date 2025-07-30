@@ -120,14 +120,14 @@ public class SysUser extends BaseEntity
     @Excel(name = "推荐人姓名", type = Type.EXPORT)
     private String referrerName;
 
-    /** 代理级别（0无代理 1省级代理 2市级代理） */
+    /** 代理级别（0无代理 1省级代理 2市级代理） - 从agent_setting表获取 */
     @Excel(name = "代理级别", readConverterExp = "0=无代理,1=省级代理,2=市级代理")
     private Integer agentLevel;
 
-    /** 代理省份 */
+    /** 代理省份 - 从agent_setting表获取 */
     private String agentProvince;
 
-    /** 代理城市 */
+    /** 代理城市 - 从agent_setting表获取 */
     private String agentCity;
 
     public SysUser()

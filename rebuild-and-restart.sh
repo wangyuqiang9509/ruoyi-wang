@@ -282,17 +282,20 @@ start_backend_service() {
     log_info "日志文件: logs/backend.log"
 
     # 等待服务启动
-    log_step "等待后端服务启动 (最多等待30秒)..."
+    log_step "等待后端服务启动 (最多等待60秒)..."
     local wait_count=0
-    local max_wait=30
+    local max_wait=60
 
     while [[ $wait_count -lt $max_wait ]]; do
         if kill -0 $backend_pid 2>/dev/null; then
             # 检查服务是否真正启动（通过检查日志或端口）
             if lsof -ti:$BACKEND_PORT >/dev/null 2>&1; then
-                log_success "后端服务启动成功！"
-                log_info "后端访问地址: http://localhost:$BACKEND_PORT"
-                return 0
+                # 额外检查HTTP服务是否可用
+                if curl -s -o /dev/null -w "%{http_code}" http://localhost:$BACKEND_PORT | grep -q "200\|302\|404"; then
+                    log_success "后端服务启动成功！"
+                    log_info "后端访问地址: http://localhost:$BACKEND_PORT"
+                    return 0
+                fi
             fi
         else
             log_error "后端服务进程已退出，启动失败！"
@@ -301,14 +304,15 @@ start_backend_service() {
             exit 1
         fi
 
-        sleep 2
-        wait_count=$((wait_count + 2))
+        sleep 3
+        wait_count=$((wait_count + 3))
         echo -n "."
     done
 
     echo ""
     log_error "后端服务启动超时！"
     log_error "请查看日志文件: logs/backend.log"
+    log_info "提示: Spring Boot应用启动可能需要更长时间，请检查日志确认服务状态"
     exit 1
 }
 

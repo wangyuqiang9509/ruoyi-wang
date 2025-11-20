@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.DistributionConfigMapper">
+    
+    <resultMap type="DistributionConfig" id="DistributionConfigResult">
+        <result property="configId"    column="config_id"    />
+        <result property="configKey"    column="config_key"    />
+        <result property="configValue"    column="config_value"    />
+        <result property="configDesc"    column="config_desc"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectDistributionConfigVo">
+        select config_id, config_key, config_value, config_desc, create_time, update_time from distribution_config
+    </sql>
+
+    <select id="selectDistributionConfigList" parameterType="DistributionConfig" resultMap="DistributionConfigResult">
+        <include refid="selectDistributionConfigVo"/>
+        <where>  
+            <if test="configKey != null  and configKey != ''"> and config_key like concat('%', #{configKey}, '%')</if>
+            <if test="configValue != null  and configValue != ''"> and config_value like concat('%', #{configValue}, '%')</if>
+            <if test="configDesc != null  and configDesc != ''"> and config_desc like concat('%', #{configDesc}, '%')</if>
+        </where>
+        order by config_id
+    </select>
+    
+    <select id="selectDistributionConfigByConfigId" parameterType="Long" resultMap="DistributionConfigResult">
+        <include refid="selectDistributionConfigVo"/>
+        where config_id = #{configId}
+    </select>
+
+    <select id="selectDistributionConfigByKey" parameterType="String" resultMap="DistributionConfigResult">
+        <include refid="selectDistributionConfigVo"/>
+        where config_key = #{configKey}
+    </select>
+        
+    <insert id="insertDistributionConfig" parameterType="DistributionConfig" useGeneratedKeys="true" keyProperty="configId">
+        insert into distribution_config
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="configKey != null">config_key,</if>
+            <if test="configValue != null">config_value,</if>
+            <if test="configDesc != null">config_desc,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="configKey != null">#{configKey},</if>
+            <if test="configValue != null">#{configValue},</if>
+            <if test="configDesc != null">#{configDesc},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDistributionConfig" parameterType="DistributionConfig">
+        update distribution_config
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="configKey != null">config_key = #{configKey},</if>
+            <if test="configValue != null">config_value = #{configValue},</if>
+            <if test="configDesc != null">config_desc = #{configDesc},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where config_id = #{configId}
+    </update>
+
+    <delete id="deleteDistributionConfigByConfigId" parameterType="Long">
+        delete from distribution_config where config_id = #{configId}
+    </delete>
+
+    <delete id="deleteDistributionConfigByConfigIds" parameterType="String">
+        delete from distribution_config where config_id in 
+        <foreach item="configId" collection="array" open="(" separator="," close=")">
+            #{configId}
+        </foreach>
+    </delete>
+
+</mapper>
